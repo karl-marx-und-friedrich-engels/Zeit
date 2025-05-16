@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AFK Timer mit Musik</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0; height: 100%; overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: none;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    #backgroundVideo {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+      filter: brightness(0.6);
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 8px #000;
+      user-select: text;
+      background: rgba(0,0,0,0.3);
+      padding: 10px 20px;
+      border-radius: 12px;
+      color: #fff;
+    }
+
+    #timerDisplay {
+      font-size: 6rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 30px 60px;
+      border-radius: 20px;
+      margin-top: 20px;
+      text-shadow: 2px 2px 6px #000;
+      user-select: text;
+      transition: all 0.3s ease;
+      min-width: 300px;
+      text-align: center;
+      color: #fff;
+    }
+
+    #controlsContainer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      max-width: 700px;
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 15px 25px;
+      border-radius: 15px;
+    }
+
+    select, button, input[type="range"] {
+      margin: 10px 5px;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      user-select: none;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover, select:hover, input[type="range"]:hover {
+      background: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 12px rgba(255,255,255,0.7);
+    }
+
+    #overtimeDisplay {
+      margin-top: 15px;
+      font-size: 1.8rem;
+      color: #ff5555;
+      text-shadow: 1px 1px 6px #000;
+      display: none;
+      user-select: text;
+      background: rgba(0,0,0,0.4);
+      padding: 5px 12px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <video id="backgroundVideo" autoplay muted loop playsinline>
+    <source src="https://motionbgs.com/media/7231/sunset-cat.960x540.mp4" type="video/mp4" />
+    Dein Browser unterstützt keine Videos.
+  </video>
+
+  <h1>AFK Timer mit Musik</h1>
+
+  <div id="controlsContainer">
+    <label for="timeSelect">Zeit auswählen:</label>
+    <select id="timeSelect">
+      <option value="5">5 Minuten</option>
+      <option value="10">10 Minuten</option>
+      <option value="15">15 Minuten</option>
+      <option value="20" selected>20 Minuten</option>
+      <option value="25">25 Minuten</option>
+      <option value="30">30 Minuten</option>
+      <option value="45">45 Minuten</option>
+      <option value="60">60 Minuten</option>
+      <option value="75">75 Minuten</option>
+      <option value="90">90 Minuten</option>
+    </select>
+
+    <label for="trackSelect">Musik auswählen:</label>
+    <select id="trackSelect"></select>
+
+    <label>
+      <input type="checkbox" id="loopAllTracks" checked> Loop
+    </label>
+
+    <button id="timerToggleBtn" onclick="toggleTimer()">▶ Start Timer</button>
+    <button id="musicToggleBtn" onclick="toggleMusic()">🎵 Musik Starten</button>
+    <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.2" onchange="setVolume(this.value)">
+  </div>
+
+  <div id="timerDisplay">00:00</div>
+  <div id="overtimeDisplay">+<span id="overtimeMinutes">0</span> Minuten überzogen</div>
+
+  <audio id="audioPlayer"></audio>
+
+  <script>
+    const trackUrls = [
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/track1-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/track2-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/track3-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/track4-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track5-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track6-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track7-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track8-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track9-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track10-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track12-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track13-beat.mp3",
+      "https://github.com/karl-marx-und-friedrich-engels/Zeit/raw/refs/heads/main/Track14-beat.mp3"
+    ];
+
+    const trackNames = [
+      "Anzeigenhauptmeister", "Ellen Noir", "LET'S GET FKD UP", "Zwiebel", "On the Floor",
+      "Willma Techno", "Kiss me again", "Oh my little baby boy", "TRI POLOSKI CHEEKI BREEKI",
+      "Babushka Gang", "Gönn dir", "Gebt mir eine", "Egal"
+    ];
+
+    const trackSelect = document.getElementById("trackSelect");
+    trackUrls.forEach((url, index) => {
+      const option = document.createElement("option");
+      option.value = url;
+      option.textContent = trackNames[index] || `Track ${index + 1}`;
+      trackSelect.appendChild(option);
+    });
+
+    let timer;
+    let endTime;
+    let isTimerRunning = false;
+    let isMusicPlaying = false;
+    let overtime = 0;
+    let overtimeInterval;
+    let currentTrackIndex = 0;
+
+    const display = document.getElementById("timerDisplay");
+    const overtimeDisplay = document.getElementById("overtimeDisplay");
+    const overtimeMinutes = document.getElementById("overtimeMinutes");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const timerToggleBtn = document.getElementById("timerToggleBtn");
+    const musicToggleBtn = document.getElementById("musicToggleBtn");
+
+    function toggleTimer() {
+      if (isTimerRunning) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function toggleMusic() {
+      if (isMusicPlaying) {
+        audioPlayer.pause();
+        musicToggleBtn.textContent = "🎵 Musik Starten";
+        isMusicPlaying = false;
+      } else {
+        const loopAll = document.getElementById("loopAllTracks").checked;
+        if (loopAll) {
+          currentTrackIndex = trackSelect.selectedIndex;
+          playSequentialTracks();
+        } else {
+          audioPlayer.src = trackSelect.value;
+          audioPlayer.loop = true;
+          audioPlayer.play();
+        }
+        musicToggleBtn.textContent = "⏸ Musik Pause";
+        isMusicPlaying = true;
+      }
+    }
+
+    function playSequentialTracks() {
+      audioPlayer.src = trackUrls[currentTrackIndex];
+      audioPlayer.loop = false;
+      audioPlayer.play();
+      audioPlayer.onended = () => {
+        currentTrackIndex++;
+        if (currentTrackIndex >= trackUrls.length) {
+          currentTrackIndex = 0;
+        }
+        audioPlayer.src = trackUrls[currentTrackIndex];
+        audioPlayer.play();
+      };
+    }
+
+    trackSelect.addEventListener("change", () => {
+      if (isMusicPlaying) {
+        // Sofort auf neuen Track umschalten
+        const loopAll = document.getElementById("loopAllTracks").checked;
+        if (loopAll) {
+          currentTrackIndex = trackSelect.selectedIndex;
+          playSequentialTracks();
+        } else {
+          audioPlayer.src = trackSelect.value;
+          audioPlayer.loop = true;
+          audioPlayer.play();
+        }
+      } else {
+        // Nur Quelle ändern, nicht abspielen
+        audioPlayer.src = trackSelect.value;
+      }
+    });
+
+    function setVolume(value) {
+      audioPlayer.volume = value;
+    }
+
+    function startTimer() {
+      const minutes = parseInt(document.getElementById("timeSelect").value, 10);
+      const now = Date.now();
+      endTime = now + minutes * 60000;
+      isTimerRunning = true;
+      timerToggleBtn.textContent = "⏸ Timer Stoppen";
+      updateTimer();
+      timer = setInterval(updateTimer, 1000);
+
+      // Musik starten, wenn nicht schon spielend
+      if (!isMusicPlaying) {
+        toggleMusic();
+      }
+    }
+
+    function stopTimer() {
+      isTimerRunning = false;
+      clearInterval(timer);
+      timerToggleBtn.textContent = "▶ Start Timer";
+      overtimeDisplay.style.display = "none";
+      overtime = 0;
+      updateTimer(); // Reset Anzeige
+
+      // Musik stoppen, wenn gewünscht
+      if (isMusicPlaying) {
+        toggleMusic();
+      }
+    }
+
+    function updateTimer() {
+      const now = Date.now();
+      const diff = endTime - now;
+      if (diff >= 0) {
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        display.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        overtimeDisplay.style.display = "none";
+      } else {
+        // Overtime
+        if (!overtimeInterval) {
+          overtimeInterval = setInterval(() => {
+            overtime++;
+            overtimeMinutes.textContent = overtime;
+          }, 60000);
+        }
+        display.textContent = "00:00";
+        overtimeDisplay.style.display = "block";
+      }
+    }
+
+    // Anfangslautstärke setzen
+    audioPlayer.volume = 0.2;
+
+    // Shortcut Shift+B zum Minimieren
+    let minimized = false;
+    document.addEventListener("keydown", (e) => {
+      if (e.shiftKey && e.key.toLowerCase() === "b") {
+        minimized = !minimized;
+        if (minimized) {
+          document.getElementById("controlsContainer").style.display = "none";
+          document.getElementById("overtimeDisplay").style.display = "none";
+          display.style.fontSize = "8rem";
+          display.style.marginTop = "0";
+          document.querySelector("h1").style.display = "none";
+        } else {
+          document.getElementById("controlsContainer").style.display = "flex";
+          display.style.fontSize = "6rem";
+          display.style.marginTop = "20px";
+          document.querySelector("h1").style.display = "block";
+          if (overtime > 0) {
+            overtimeDisplay.style.display = "block";
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
